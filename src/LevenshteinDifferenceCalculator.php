@@ -24,7 +24,10 @@ class LevenshteinDifferenceCalculator
         if ($worstCaseDistance > 255) {
             throw new \RuntimeException('Levenshtein can\'n work with strings longer than 255 characters');
         }
-        $bestCaseDistance = 0;
+        if($this->hasFullMatch($word)) {
+            return 0;
+        }
+        $bestCaseDistance = 1;
         $bestDistance = $worstCaseDistance;
         foreach ($this->vocabulary as $item) {
             $newDistance = levenshtein($word, $item);
@@ -37,5 +40,10 @@ class LevenshteinDifferenceCalculator
         }
 
         return $bestDistance;
+    }
+
+    private function hasFullMatch(string $word): bool
+    {
+        return in_array($word, $this->vocabulary, true);
     }
 }

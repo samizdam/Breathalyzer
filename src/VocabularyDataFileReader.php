@@ -19,6 +19,7 @@ class VocabularyDataFileReader
 
     public function getVocabulary(): array
     {
-        return array_map('strtolower', file($this->filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+        $vocabularyItems = file($this->filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        return array_map('strtolower', $vocabularyItems);
     }
 }
