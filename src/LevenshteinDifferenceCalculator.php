@@ -30,12 +30,12 @@ class LevenshteinDifferenceCalculator
         $bestCaseDistance = 1;
         $bestDistance = $worstCaseDistance;
         foreach ($this->vocabulary as $item) {
+            if ($bestDistance === $bestCaseDistance) {
+                break;
+            }
             $newDistance = levenshtein($word, $item);
             if ($newDistance < $bestDistance) {
                 $bestDistance = $newDistance;
-            }
-            if ($bestDistance === $bestCaseDistance) {
-                break;
             }
         }
 
