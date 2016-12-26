@@ -6,7 +6,6 @@ Requirements: PHP >= 7.0
 ```
 git clone git@github.com:samizdam/Breathalyzer.git
 cd Breathalyzer
-composer install
 ```
 
 ## Run
@@ -14,9 +13,4 @@ composer install
 php bin/breathalyzer.php data/187
 # or 
 php bin/breathalyzer.php data/example_input
-```
-
-## Testing
-```
-vendor/bin/phpunit tests/
 ```

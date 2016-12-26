@@ -5,40 +5,78 @@
  */
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Datanyze\Breathalyzer;
-use Datanyze\InputDataFileReader;
-use Datanyze\LevenshteinDifferenceCalculator;
-use Datanyze\VocabularyDataFileReader;
-
 const VOCABULARY_FILENAME = __DIR__ . '/../data/vocabulary.txt';
-
-/**
- * Set to false for skip memory usage and time spent info.
- */
-const SHOW_BREATHALYZER_PROFILING_INFO = true;
 
 $inputFilename = getInputDataFileName($argv);
 
-$startTime = microtime(true);
+$vocabularyItems = file(VOCABULARY_FILENAME, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+$vocabulary = array_map('strtolower', $vocabularyItems);
+$words = preg_split('/[\s]+/', trim(file_get_contents($inputFilename)));
 
-$vocabulary = (new VocabularyDataFileReader(VOCABULARY_FILENAME))->getVocabulary();
-$words = (new InputDataFileReader($inputFilename))->getWords();
-$breathalyzer = new Breathalyzer(new LevenshteinDifferenceCalculator($vocabulary));
-echo $breathalyzer->calculateTotalDistance($words);
+echo calculateTotalDistanceSum($words, $vocabulary);
 
-$finishTime = microtime(true);
-
-if (SHOW_BREATHALYZER_PROFILING_INFO) {
-    echo PHP_EOL . '=== Efficiency info ===' . PHP_EOL;
-    $totalTimeInSec = round($finishTime - $startTime, 3);
-    echo $totalTimeInSec . 'seconds spent. ' . PHP_EOL;
-    echo convertBytesToMB(memory_get_usage()) . 'MB memory usage. ' . PHP_EOL;
-    echo convertBytesToMB(memory_get_peak_usage()) . 'MB memory in peak usage. ' . PHP_EOL;
-}
-
-function convertBytesToMB(int $value): int
+function calculateTotalDistanceSum(array $words, array $vocabulary): int
 {
-    return $value / 1024 / 1024;
+    $vocabularySortedByLength = $vocabulary;
+    usort($vocabularySortedByLength, function ($a, $b) {
+        if (strlen($a) === strlen($b)) {
+            return 0;
+        } elseif (strlen($a) < strlen($b)) {
+            return -1;
+        } else {
+            return 1;
+        }
+    });
+    $longestTerm = $vocabularySortedByLength[count($vocabularySortedByLength) - 1];
+    $termsGroupedByLength = [];
+    for ($i = 1; $i < strlen($longestTerm); $i++) {
+        $termsGroupedByLength[$i] = array_filter($vocabulary, function ($item) use ($i) {
+            return strlen($item) === $i;
+        });
+    }
+
+    $closure = function (string $word) use ($vocabulary, $termsGroupedByLength) {
+        $worstCaseDistance = $wordLength = strlen($word);
+        if ($worstCaseDistance > 255) {
+            throw new \RuntimeException('Levenshtein can\'n work with strings longer than 255 characters');
+        }
+        if (in_array($word, $termsGroupedByLength[$wordLength], true)) {
+            return 0;
+        }
+        $bestCaseDistance = 1;
+        $bestDistance = $worstCaseDistance;
+
+        $termsShorterBy_3_Chars = $termsGroupedByLength[$wordLength - 3] ?? [];
+        $termsShorterBy_2_Chars = $termsGroupedByLength[$wordLength - 2] ?? [];
+        $termsShorterBy_1_Char = $termsGroupedByLength[$wordLength - 1] ?? [];
+        $termsWithEqualsLength = $termsGroupedByLength[$wordLength] ?? [];
+        $termsLongerBy_1_Char = $termsGroupedByLength[$wordLength + 1] ?? [];
+        $termsLongerBy_2_Chars = $termsGroupedByLength[$wordLength + 2] ?? [];
+        $termsLongerBy_3_Chars = $termsGroupedByLength[$wordLength + 3] ?? [];
+
+        $nearedTerms = array_merge(
+            $termsWithEqualsLength,
+            $termsShorterBy_1_Char,
+            $termsLongerBy_1_Char,
+            $termsShorterBy_2_Chars,
+            $termsLongerBy_2_Chars,
+            $termsShorterBy_3_Chars,
+            $termsLongerBy_3_Chars);
+
+        foreach ($nearedTerms as $item) {
+            if ($bestDistance === $bestCaseDistance) {
+                return $bestCaseDistance;
+            }
+            $newDistance = levenshtein($word, $item);
+            if ($newDistance < $bestDistance) {
+                $bestDistance = $newDistance;
+            }
+        }
+
+        return $bestDistance;
+    };
+
+    return array_sum(array_map($closure, $words));
 }
 
 function getInputDataFileName(array $argv): string
